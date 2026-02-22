@@ -1,9 +1,14 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
+const dns = require('dns').promises;
+const disposableDomainsRaw = require('disposable-email-domains');
+const disposableDomains = disposableDomainsRaw && (disposableDomainsRaw.default || disposableDomainsRaw);
 const User = require('../models/User');
 const Club = require('../models/Club');
 const { decryptPassword } = require('../utils/crypto');
+
+const MX_CHECK_TIMEOUT_MS = 5000;
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -115,6 +120,40 @@ exports.studentSignUp = async (req, res) => {
         }
 
         const useEmailVerification = isEmailConfigured();
+
+        // When email is configured: disposable-domain blocklist + MX check (no paid API)
+        if (useEmailVerification) {
+            const domain = email.split('@')[1];
+            if (domain) {
+                // CHECK 1 — Disposable email domain
+                const domainLower = domain.toLowerCase();
+                const blocklist = Array.isArray(disposableDomains) ? disposableDomains : [];
+                if (blocklist.includes(domainLower)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Please use a permanent email address. Disposable/temporary emails are not allowed.'
+                    });
+                }
+
+                // CHECK 2 — MX record (fail open on timeout or error)
+                try {
+                    const mxRecords = await Promise.race([
+                        dns.resolveMx(domain),
+                        new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error('MX lookup timeout')), MX_CHECK_TIMEOUT_MS)
+                        )
+                    ]);
+                    if (!mxRecords || mxRecords.length === 0) {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'This email domain does not appear to accept emails. Please use a valid email address.'
+                        });
+                    }
+                } catch (err) {
+                    console.warn('Signup: MX check failed (fail open):', err.message);
+                }
+            }
+        }
 
         if (!useEmailVerification) {
             // No email config: create account and log in immediately (deployment without SMTP)
