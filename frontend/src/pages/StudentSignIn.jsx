@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogIn, Mail, Lock, Eye, EyeOff, KeyRound, ArrowLeft, Send } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,8 @@ import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 
 export default function StudentSignIn() {
+    const [searchParams] = useSearchParams();
+    const redirectTo = searchParams.get('redirect') || '/dashboard';
     const [form, setForm] = useState({ email: '', password: '' });
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -26,8 +28,7 @@ export default function StudentSignIn() {
             const res = await studentSignIn(form);
             login(res.data.token, res.data.user);
             toast.success('Welcome back! 👋');
-            // Always go to student portal first (admins can switch to admin portal from navbar)
-            navigate('/dashboard');
+            navigate(redirectTo.startsWith('/') ? redirectTo : `/${redirectTo}`);
         } catch (err) {
             toast.error(err.response?.data?.message || 'Sign in failed');
         } finally {

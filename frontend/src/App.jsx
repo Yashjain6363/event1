@@ -9,6 +9,8 @@ import StudentSignIn from './pages/StudentSignIn';
 import AdminLogin from './pages/AdminLogin';
 import StudentDashboard from './pages/StudentDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import PublicEvents from './pages/PublicEvents';
+import EventDetail from './pages/EventDetail';
 
 function SmartRedirect() {
   const { user, loading } = useAuth();
@@ -48,6 +50,8 @@ export default function App() {
           <Route path="/signup" element={<StudentSignUp />} />
           <Route path="/signin" element={<StudentSignIn />} />
           <Route path="/admin-login" element={<AdminLogin />} />
+          <Route path="/events" element={<PublicEvents />} />
+          <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/dashboard" element={
             <PrivateRoute role="student"><StudentDashboard /></PrivateRoute>
           } />

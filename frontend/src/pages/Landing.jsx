@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { GraduationCap, UserPlus, LogIn, ChevronDown, Star, Calendar, Users } from 'lucide-react';
+import { GraduationCap, UserPlus, LogIn, ChevronDown, Star, Calendar, Users, CalendarDays } from 'lucide-react';
 
 export default function Landing() {
     return (
@@ -54,8 +54,17 @@ export default function Landing() {
                         initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.3 }}
-                        className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+                        className="flex flex-col sm:flex-row gap-4 justify-center items-center flex-wrap"
                     >
+                        <Link to="/events" id="browse-events-btn">
+                            <motion.div
+                                whileHover={{ scale: 1.03, y: -2 }}
+                                whileTap={{ scale: 0.98 }}
+                                className="flex items-center gap-3 px-8 py-4 rounded-2xl font-semibold text-white text-base cursor-pointer border border-white/20 hover:border-indigo-500/50 bg-white/5 hover:bg-white/10 transition-all"
+                            >
+                                <CalendarDays size={20} /> Browse events
+                            </motion.div>
+                        </Link>
                         <Link to="/signup" id="student-signup-btn">
                             <motion.div
                                 whileHover={{ scale: 1.03, y: -2 }}

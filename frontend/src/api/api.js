@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+// For deployment: set VITE_API_URL to your backend URL (e.g. https://api.yourdomain.com)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+export const API_BASE = API_BASE_URL;
+
 const API = axios.create({
-    baseURL: 'http://localhost:5000/api',
+    baseURL: `${API_BASE_URL}/api`,
     timeout: 30000,
 });
 
@@ -17,7 +21,7 @@ API.interceptors.response.use(
         if (err.response?.status === 401) {
             // Don't redirect when 401 is from auth attempts (sign-in, sign-up, etc.)
             // User should stay on the form to see the error message
-            const authEndpoints = ['/auth/student/signin', '/auth/student/signup', '/auth/admin/relogin', '/auth/forgot-password'];
+            const authEndpoints = ['/auth/student/signin', '/auth/student/signup', '/auth/student/verify-otp', '/auth/student/resend-otp', '/auth/admin/relogin', '/auth/forgot-password'];
             const isAuthAttempt = authEndpoints.some(ep => err.config?.url?.includes(ep));
             if (!isAuthAttempt) {
                 localStorage.removeItem('token');
@@ -31,6 +35,8 @@ API.interceptors.response.use(
 
 // Student Auth
 export const studentSignUp = (data) => API.post('/auth/student/signup', data);
+export const verifyOtp = (data) => API.post('/auth/student/verify-otp', data);
+export const resendOtp = (data) => API.post('/auth/student/resend-otp', data);
 export const studentSignIn = (data) => API.post('/auth/student/signin', data);
 
 // Admin Auth — first-time registration (multipart - ID card upload)

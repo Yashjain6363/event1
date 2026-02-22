@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { studentSignUp, studentSignIn, adminLogin, adminReLogin, getMe, forgotPassword, adminResetPassword } = require('../controllers/authController');
+const { studentSignUp, studentSignIn, adminLogin, adminReLogin, getMe, forgotPassword, adminResetPassword, verifyOtp, resendOtp } = require('../controllers/authController');
 const { authMiddleware, adminOnly } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 
 // Student routes
 router.post('/student/signup', studentSignUp);
+router.post('/student/verify-otp', verifyOtp);
+router.post('/student/resend-otp', resendOtp);
 router.post('/student/signin', studentSignIn);
 router.post('/forgot-password', forgotPassword);
 

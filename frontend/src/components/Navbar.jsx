@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
-import { GraduationCap, LogOut, Home, LayoutDashboard, Shield } from 'lucide-react';
+import { GraduationCap, LogOut, Home, LayoutDashboard, Shield, CalendarDays } from 'lucide-react';
 
 export default function Navbar() {
     const { user, logout } = useAuth();
@@ -58,14 +58,22 @@ export default function Navbar() {
                             </button>
                         </>
                     ) : (
-                        location.pathname !== '/' && (
+                        <>
                             <Link
-                                to="/"
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+                                to="/events"
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 transition-all"
                             >
-                                <Home size={16} /> Home
+                                <CalendarDays size={16} /> Browse events
                             </Link>
-                        )
+                            {location.pathname !== '/' && (
+                                <Link
+                                    to="/"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+                                >
+                                    Home
+                                </Link>
+                            )}
+                        </>
                     )}
                 </div>
             </div>

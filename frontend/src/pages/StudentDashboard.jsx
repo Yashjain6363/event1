@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, MapPin, Users, Search, Filter, IndianRupee, CheckCircle2, Loader2, Ticket, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getAllEvents, getMyRegistrations, createPaymentOrder, verifyPayment, registerFreeEvent } from '../api/api';
+import { getAllEvents, getMyRegistrations, createPaymentOrder, verifyPayment, registerFreeEvent, API_BASE } from '../api/api';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 
@@ -212,7 +212,7 @@ export default function StudentDashboard() {
                 {/* Event Image / Color Banner */}
                 {event.imageURL ? (
                     <div className="relative h-36 overflow-hidden">
-                        <img src={`http://localhost:5000${event.imageURL.startsWith('/') ? '' : '/'}${event.imageURL}`} alt={event.eventName}
+                        <img src={`${API_BASE}${event.imageURL.startsWith('/') ? '' : '/'}${event.imageURL}`} alt={event.eventName}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                         <div className="absolute top-3 right-3">
@@ -346,7 +346,7 @@ export default function StudentDashboard() {
                 <div className="flex flex-col sm:flex-row">
                     {event.imageURL ? (
                         <div className="relative sm:w-48 h-32 sm:h-auto shrink-0 overflow-hidden">
-                            <img src={`http://localhost:5000${event.imageURL.startsWith('/') ? '' : '/'}${event.imageURL}`} alt={event.eventName}
+                            <img src={`${API_BASE}${event.imageURL.startsWith('/') ? '' : '/'}${event.imageURL}`} alt={event.eventName}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent sm:bg-gradient-to-r" />
                         </div>

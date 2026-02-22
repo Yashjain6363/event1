@@ -5,7 +5,7 @@ import {
     IndianRupee, Users, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getAllEvents, createEvent, updateEvent, deleteEvent, adminResetPassword, getEventRegistrations } from '../api/api';
+import { getAllEvents, createEvent, updateEvent, deleteEvent, adminResetPassword, getEventRegistrations, API_BASE } from '../api/api';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 
@@ -116,7 +116,7 @@ export default function AdminDashboard() {
             maxRegistrations: event.maxRegistrations > 0 ? String(event.maxRegistrations) : ''
         });
         setEditingId(event._id);
-        if (event.imageURL) setPreview(`http://localhost:5000${event.imageURL}`);
+        if (event.imageURL) setPreview(`${API_BASE}${event.imageURL.startsWith('/') ? '' : '/'}${event.imageURL}`);
         setShowForm(true);
     };
 
@@ -456,7 +456,7 @@ export default function AdminDashboard() {
                                         {/* Image */}
                                         {event.imageURL && (
                                             <div className="w-full sm:w-28 h-24 rounded-xl overflow-hidden shrink-0">
-                                                <img src={`http://localhost:5000${event.imageURL}`} alt={event.eventName}
+                                                <img src={`${API_BASE}${event.imageURL.startsWith('/') ? '' : '/'}${event.imageURL}`} alt={event.eventName}
                                                     className="w-full h-full object-cover" />
                                             </div>
                                         )}

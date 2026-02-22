@@ -38,6 +38,10 @@ const userSchema = new mongoose.Schema({
         enum: ['student', 'admin'],
         default: 'student'
     },
+    // Email verification (students)
+    emailVerified: { type: Boolean, default: false },
+    otp: { type: String, select: false },
+    otpExpiresAt: { type: Date, select: false },
     // Admin-specific fields
     clubCategory: { type: String, default: null },
     clubName: { type: String, default: null },

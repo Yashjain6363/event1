@@ -11,6 +11,13 @@ const generateToken = (id) => {
     });
 };
 
+// Check if email (Gmail) is configured for sending
+const isEmailConfigured = () => {
+    const user = process.env.EMAIL_USER;
+    const pass = process.env.EMAIL_PASS;
+    return Boolean(user && pass && String(user).trim() && String(pass).trim());
+};
+
 // Email transporter
 const createTransporter = () => {
     return nodemailer.createTransport({
@@ -22,51 +29,199 @@ const createTransporter = () => {
     });
 };
 
+// Generate 6-digit OTP
+const generateOTP = () => String(Math.floor(100000 + Math.random() * 900000));
+
+// Send OTP email (Gmail). Returns { sent: true } or { sent: false, error }.
+const sendOTPEmail = async (email, fullName, otp) => {
+    if (!isEmailConfigured()) {
+        return { sent: false, error: 'Email service is not configured (missing EMAIL_USER or EMAIL_PASS)' };
+    }
+    try {
+        const transporter = createTransporter();
+        await transporter.sendMail({
+            from: `"BMSCE Events Portal" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'Verify your email - BMSCE Events',
+            html: `
+                <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 30px; background: #1a1a2e; color: #f0f0f0; border-radius: 16px;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h1 style="color: #8B5CF6; font-size: 24px; margin: 0;">BMSCE Events Portal</h1>
+                        <p style="color: #9CA3AF; font-size: 14px; margin-top: 4px;">Email Verification</p>
+                    </div>
+                    <p style="color: #D1D5DB;">Hi <strong style="color: white;">${fullName}</strong>,</p>
+                    <p style="color: #D1D5DB;">Your one-time verification code is:</p>
+                    <div style="background: #2d2d4e; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0; border: 1px solid #8B5CF6;">
+                        <code style="font-size: 28px; color: #8B5CF6; letter-spacing: 8px; font-weight: bold;">${otp}</code>
+                    </div>
+                    <p style="color: #9CA3AF; font-size: 13px;">This code expires in 10 minutes. Do not share it with anyone.</p>
+                    <hr style="border: 1px solid #333; margin: 20px 0;">
+                    <p style="color: #6B7280; font-size: 12px; text-align: center;">BMSCE Events Portal &bull; Bull Temple Road, Bengaluru</p>
+                </div>
+            `
+        });
+        return { sent: true };
+    } catch (err) {
+        console.error('Send OTP email error:', err.message);
+        return { sent: false, error: err.message };
+    }
+};
+
+// Validate email format (strict: has @, domain with at least one dot, no spaces)
+const isValidEmail = (str) => {
+    if (!str || typeof str !== 'string') return false;
+    const trimmed = str.trim().toLowerCase();
+    if (trimmed.length > 254) return false;
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+    return emailRegex.test(trimmed);
+};
+
 // =============================================
 // POST /api/auth/student/signup
 // =============================================
 exports.studentSignUp = async (req, res) => {
     try {
-        const { fullName, email, usn, password } = req.body;
+        const fullName = String(req.body.fullName || '').trim();
+        const email = String(req.body.email || '').trim().toLowerCase();
+        const usn = String(req.body.usn || '').trim().toUpperCase();
+        const password = String(req.body.password || '');
 
-        if (!fullName || !email || !usn || !password) {
-            return res.status(400).json({ success: false, message: 'All fields are required' });
+        if (!fullName || !usn) {
+            return res.status(400).json({ success: false, message: 'Full name and USN are required' });
         }
 
-        if (password.length < 6) {
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Email is required' });
+        }
+
+        if (!isValidEmail(email)) {
+            return res.status(400).json({ success: false, message: 'Please enter a valid email address' });
+        }
+
+        if (!password || password.length < 6) {
             return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
         }
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
-        }
-
         // Check if email already exists
-        const existingEmail = await User.findOne({ email: email.toLowerCase() });
+        const existingEmail = await User.findOne({ email });
         if (existingEmail) {
             return res.status(400).json({ success: false, message: 'Email already registered' });
         }
 
         // Check if USN already exists
-        const existingUSN = await User.findOne({ usn: usn.toUpperCase() });
+        const existingUSN = await User.findOne({ usn });
         if (existingUSN) {
             return res.status(400).json({ success: false, message: 'USN already registered' });
         }
 
+        const useEmailVerification = isEmailConfigured();
+
+        if (!useEmailVerification) {
+            // No email config: create account and log in immediately (deployment without SMTP)
+            const user = await User.create({
+                fullName,
+                email,
+                usn,
+                password,
+                role: 'student',
+                emailVerified: true
+            });
+
+            const token = generateToken(user._id);
+            return res.status(201).json({
+                success: true,
+                message: 'Account created successfully!',
+                token,
+                user: {
+                    _id: user._id,
+                    fullName: user.fullName,
+                    email: user.email,
+                    usn: user.usn,
+                    role: user.role
+                }
+            });
+        }
+
+        // Email configured: send OTP to verify email is real
+        const otp = generateOTP();
+        const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
         const user = await User.create({
             fullName,
-            email: email.toLowerCase(),
-            usn: usn.toUpperCase(),
+            email,
+            usn,
             password,
-            role: 'student'
+            role: 'student',
+            emailVerified: false,
+            otp,
+            otpExpiresAt
         });
 
-        const token = generateToken(user._id);
+        const emailResult = await sendOTPEmail(user.email, user.fullName, otp);
+        if (!emailResult.sent) {
+            console.error('Signup: OTP email failed:', emailResult.error);
+        }
 
         res.status(201).json({
             success: true,
-            message: 'Account created successfully!',
+            needsVerification: true,
+            message: emailResult.sent
+                ? 'Account created! Check your email for the verification code.'
+                : 'Account created! We couldn\'t send the email right now. Go to Sign In, enter your email, then click "Resend code" to get the verification code.',
+            email: user.email
+        });
+    } catch (error) {
+        console.error('Signup Error:', error.message, error.code || '');
+        if (error.code === 11000) {
+            const field = error.message && error.message.includes('usn') ? 'USN' : 'Email';
+            return res.status(400).json({ success: false, message: `${field} already registered` });
+        }
+        if (error.name === 'ValidationError') {
+            const msg = error.errors ? Object.values(error.errors).map(e => e.message).join(' ') : error.message;
+            return res.status(400).json({ success: false, message: msg || 'Validation failed' });
+        }
+        res.status(500).json({ success: false, message: 'Server error during signup' });
+    }
+};
+
+// =============================================
+// POST /api/auth/student/verify-otp
+// =============================================
+exports.verifyOtp = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() }).select('+otp +otpExpiresAt');
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'No account found with this email' });
+        }
+
+        if (user.emailVerified) {
+            return res.status(400).json({ success: false, message: 'Email is already verified. You can sign in.' });
+        }
+
+        if (!user.otp || user.otp !== String(otp).trim()) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired verification code' });
+        }
+
+        if (user.otpExpiresAt && new Date() > new Date(user.otpExpiresAt)) {
+            return res.status(400).json({ success: false, message: 'Verification code has expired. Please request a new one.' });
+        }
+
+        user.emailVerified = true;
+        user.otp = undefined;
+        user.otpExpiresAt = undefined;
+        await user.save({ validateBeforeSave: false });
+
+        const token = generateToken(user._id);
+
+        res.json({
+            success: true,
+            message: 'Email verified successfully!',
             token,
             user: {
                 _id: user._id,
@@ -77,8 +232,59 @@ exports.studentSignUp = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Signup Error:', error.message);
-        res.status(500).json({ success: false, message: 'Server error during signup' });
+        console.error('Verify OTP Error:', error.message);
+        res.status(500).json({ success: false, message: 'Verification failed' });
+    }
+};
+
+// =============================================
+// POST /api/auth/student/resend-otp
+// =============================================
+exports.resendOtp = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Email is required' });
+        }
+
+        if (!isEmailConfigured()) {
+            return res.status(503).json({
+                success: false,
+                message: 'Email service is not configured. Please contact the administrator.'
+            });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() }).select('+otp +otpExpiresAt');
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'No account found with this email' });
+        }
+
+        if (user.emailVerified) {
+            return res.status(400).json({ success: false, message: 'Email is already verified. You can sign in.' });
+        }
+
+        const otp = generateOTP();
+        user.otp = otp;
+        user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        await user.save({ validateBeforeSave: false });
+
+        const emailResult = await sendOTPEmail(user.email, user.fullName, otp);
+        if (!emailResult.sent) {
+            console.error('Resend OTP: send failed', emailResult.error);
+            return res.status(503).json({
+                success: false,
+                message: 'Could not send verification email. Please try again later or contact support.'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'A new verification code has been sent to your email.'
+        });
+    } catch (error) {
+        console.error('Resend OTP Error:', error.message);
+        res.status(500).json({ success: false, message: 'Failed to resend code' });
     }
 };
 
@@ -87,14 +293,15 @@ exports.studentSignUp = async (req, res) => {
 // =============================================
 exports.studentSignIn = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const email = String(req.body.email || '').trim().toLowerCase();
+        const password = req.body.password;
 
         if (!email || !password) {
             return res.status(400).json({ success: false, message: 'Email and password are required' });
         }
 
         // Find user by email (ANY role — student or admin)
-        const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+        const user = await User.findOne({ email }).select('+password');
         if (!user) {
             return res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
